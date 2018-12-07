@@ -2,10 +2,10 @@ package es.upm.dit.cnvr.crudzk;
 
 public interface BankClientI {
 	int getAccount();
-	void setAccount();
+	void setAccount(int account);
 	String getName();
-	void setName();
+	void setName(String name);
 	int getBalance();
-	void setBalance();
+	void setBalance(int balance);
 	String toString();
 }

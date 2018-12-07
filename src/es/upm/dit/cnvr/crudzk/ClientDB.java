@@ -63,5 +63,14 @@ public class ClientDB implements ClientDBI<BankClientI> {
 		}
 		return ServiceStatus.INFORMATION_INVALID;
 	}
+	
+	public String toString() {
+		String aux = new String();
+
+		for (java.util.HashMap.Entry <Integer, BankClientI>  entry : this.clientDB.entrySet()) {
+			aux = aux + entry.getValue().toString() + "\n";
+		}
+		return aux;
+	}
 
 }
