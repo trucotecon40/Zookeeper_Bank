@@ -2,12 +2,11 @@ package es.upm.dit.cnvr.crudzk;
 
 import java.util.Iterator;
 import java.util.List;
-import java.io.IOException;
 import java.util.Random;
 
 import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooKeeper;
@@ -22,11 +21,11 @@ public class zkMembers implements Watcher{
     private String rol;
 
     // This is static. A list of zookeeper can be provided for decide where to connect
-    String[] hosts = {"127.0.0.1:2181", "127.0.0.1:2181", "127.0.0.1:2181"};
+    static String[] hosts = {"127.0.0.1:2181", "127.0.0.1:2181", "127.0.0.1:2181"};
 
     private ZooKeeper zk;
 
-    public zkMembers (selectedHost) {
+    public zkMembers (String selectedHost) {
 
         // Select a random zookeeper server
         Random rand = new Random();
@@ -152,7 +151,7 @@ public class zkMembers implements Watcher{
 
     public static void main(String[] args) {
         zkMembers zkList[] = new zkMembers[hosts.length];
-        for (int i = 0; i < hosts.lenght; i++) {
+        for (int i = 0; i < hosts.length; i++) {
             zkList[i] = new zkMembers(hosts[i]);
         }
         //try {
