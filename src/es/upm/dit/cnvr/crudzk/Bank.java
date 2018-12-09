@@ -7,6 +7,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 
@@ -29,6 +30,8 @@ public class Bank {
 	private ServerSocket ss;
 
 	private static String createNode = "/create";
+	private static String updateNode = "/update";
+	private static String deleteNode = "/delete";
 
 	private static String rootMembers = "/members";
 	private static String aMember = "/member-";
@@ -67,14 +70,31 @@ public class Bank {
 		return (BankClient) this.clientDB.read(account);
 	}
 
-	public void updateClient(int account, int balance) {
+	public void updateClient(int account, int balance) throws IOException{
 		BankClient client = this.readClient(account);
 		client.setBalance(balance);
-		this.clientDB.update(client);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ObjectOutputStream os = new ObjectOutputStream(out);
+		os.writeObject(client);
+		try {
+			Stat s = zk.exists(updateNode, null);
+			zk.setData(updateNode, out.toByteArray(), s.getVersion());
+			this.clientDB.update(client);
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		}
 	}
 
 	public void deleteClient(int account) {
-		this.clientDB.delete(account);
+		ByteBuffer b = ByteBuffer.allocate(4);
+		b.putInt(account);
+		try {
+			Stat s = zk.exists(deleteNode, null);
+			zk.setData(deleteNode, b.array(), s.getVersion());
+			this.clientDB.delete(account);
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		}	
 	}
 
 	public String toString() {
@@ -145,6 +165,18 @@ public class Bank {
 					zk.create(createNode, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 				}
 				zk.exists(createNode, createWatcher);
+				
+				Stat s3 = zk.exists(updateNode, null);
+				if (s3 == null) {
+					zk.create(updateNode, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+				}
+				zk.exists(updateNode, updateWatcher);
+				
+				Stat s4 = zk.exists(deleteNode, null);
+				if (s4 == null) {
+					zk.create(deleteNode, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+				}
+				zk.exists(deleteNode, deleteWatcher);
 
 			} catch (KeeperException e) {
 				System.out.println("The session with Zookeeper failes. Closing");
@@ -190,7 +222,7 @@ public class Bank {
 		public void process(WatchedEvent event) {
 			System.out.println("------------------Create Watcher------------------\n");
 			try {
-				Stat s = zk.exists(createNode, createWatcher);
+				Stat s = zk.exists(createNode, null);
 				byte[] data = zk.getData(createNode, createWatcher, s);
 				ByteArrayInputStream in = new ByteArrayInputStream(data);
 				ObjectInputStream is = new ObjectInputStream(in);
@@ -198,6 +230,37 @@ public class Bank {
 				clientDB.create(client);
 			} catch (Exception e) {
 				System.out.println("Exception: createWatcher");
+			}
+		}
+	};
+	
+	private Watcher updateWatcher = new Watcher() {
+		public void process(WatchedEvent event) {
+			System.out.println("------------------Update Watcher------------------\n");
+			try {
+				Stat s = zk.exists(updateNode, null);
+				byte[] data = zk.getData(updateNode, updateWatcher, s);
+				ByteArrayInputStream in = new ByteArrayInputStream(data);
+				ObjectInputStream is = new ObjectInputStream(in);
+				BankClient client = (BankClient) is.readObject();
+				clientDB.update(client);
+			} catch (Exception e) {
+				System.out.println("Exception: updateWatcher");
+			}
+		}
+	};
+	
+	private Watcher deleteWatcher = new Watcher() {
+		public void process(WatchedEvent event) {
+			System.out.println("------------------Delete Watcher------------------\n");
+			try {
+				Stat s = zk.exists(deleteNode, null);
+				byte[] data = zk.getData(deleteNode, deleteWatcher, s);
+				ByteBuffer buffer = ByteBuffer.wrap(data);
+				int account = buffer.getInt();
+				clientDB.delete(account);
+			} catch (Exception e) {
+				System.out.println("Exception: deleteWatcher");
 			}
 		}
 	};
