@@ -1,5 +1,6 @@
 package es.upm.dit.cnvr.crudzk;
 
+import java.io.IOException;
 import java.util.Scanner;
 
 public class MainBank {
@@ -7,7 +8,7 @@ public class MainBank {
 
 	}
 
-	public void initClients(Bank bank) {
+	public void initClients(Bank bank) throws IOException{
 		bank.createClient(new BankClient("Angel Alarcón", 1, 100));
 
 		bank.createClient(new BankClient("Bernardo Bueno", 2, 200));
@@ -65,7 +66,12 @@ public class MainBank {
 		// System. out .println(">>> Enter opn cliente.: 1) Start bank");
 		// sc.next();
 		if (bank.isLeader()) {
-			mainBank.initClients(bank);
+			try {
+				mainBank.initClients(bank);
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+			}
+			
 		}else {
 			System.out.println("No soy líder por lo que espero que me la mande el líder");
 		}
