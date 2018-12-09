@@ -1,6 +1,10 @@
 package es.upm.dit.cnvr.crudzk;
 
-public class ClientDB implements ClientDBI<BankClientI> {
+import java.io.Serializable;
+
+public class ClientDB implements ClientDBI<BankClientI>, Serializable {
+	
+	private static final long serialVersionUID = 1L;
 	
 	private java.util.HashMap <Integer, BankClientI> clientDB;
 	

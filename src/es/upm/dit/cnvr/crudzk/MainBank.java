@@ -64,7 +64,11 @@ public class MainBank {
 
 		// System. out .println(">>> Enter opn cliente.: 1) Start bank");
 		// sc.next();
-		mainBank.initClients(bank);
+		if (bank.isLeader()) {
+			mainBank.initClients(bank);
+		}else {
+			System.out.println("No soy líder por lo que espero que me la mande el líder");
+		}
 		while (!exit) {
 			try {
 				correct = false;

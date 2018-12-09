@@ -1,8 +1,12 @@
 package es.upm.dit.cnvr.crudzk;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -15,19 +19,30 @@ import org.apache.zookeeper.data.Stat;
 public class Bank {
 	private ClientDB clientDB;
 	private static final int SESSION_TIMEOUT = 5000;
+	
+	private final int PUERTO = 1234;
+	private final String HOST = "localhost";
+	private Socket cs; 
+	private ObjectOutputStream salida;
+	private ServerSocket ss;
 
 	private static String rootMembers = "/members";
 	private static String aMember = "/member-";
 	private String myId;
-	private Boolean isLeader;
+	private Boolean isLeader = false;
 	// This is static. A list of zookeeper can be provided for decide where to connect
-	static String[] hosts = {"127.0.0.1:2181", "127.0.0.1:2181", "127.0.0.1:2181"};
+	String host = "127.0.0.1:2181";
+	private List<String> members; 
 
 	private ZooKeeper zk;
 
 	public Bank() {
 		this.clientDB = new ClientDB();
-		zkLeaderSelector();
+		this.zkLeaderSelector();
+	}
+	
+	public boolean isLeader() {
+		return this.isLeader;
 	}
 	
 	public void createClient(BankClient client) {
@@ -56,17 +71,13 @@ public class Bank {
 		return string;
 	}
 
-	public void zkLeaderSelector () {
-
-		// Select a random zookeeper server
-		Random rand = new Random();
-		int i = rand.nextInt(hosts.length);
+	private void zkLeaderSelector () {
 
 		// Create a session and wait until it is created.
 		// When is created, the watcher is notified
 		try {
 			if (zk == null) {
-				zk = new ZooKeeper(hosts[i], SESSION_TIMEOUT, cWatcher);
+				zk = new ZooKeeper(this.host, SESSION_TIMEOUT, cWatcher);
 				try {
 					// Wait for creating the session. Use the object lock
 					wait();
@@ -88,7 +99,7 @@ public class Bank {
 				String response = new String();
 				Stat s = zk.exists(rootMembers, watcherMember); //this);
 				if (s == null) {
-					// Created the znode, if it is not created.
+					// Create the znode, if it is not created.
 					response = zk.create(rootMembers, new byte[0],
 							Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 					System.out.println(response);
@@ -96,14 +107,27 @@ public class Bank {
 
 				// Create a znode for registering as member and get my id
 				myId = zk.create(rootMembers + aMember, new byte[0],
-						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
+						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);				
 
 				myId = myId.replace(rootMembers + "/", "");
 
-				List<String> list = zk.getChildren(rootMembers, watcherMember, s); //this, s);
+				this.members = zk.getChildren(rootMembers, watcherMember, s); //this, s);
 				System.out.println("Created znode nember id:"+ myId );
-				printListMembers(list);
-				selectLeader(list);
+				printListMembers(members);
+				selectLeader(members);
+				if (!this.isLeader) {
+					try {
+						this.ss = new ServerSocket(PUERTO);
+						this.cs = ss.accept();
+						ObjectInputStream entrada = new ObjectInputStream(cs.getInputStream());
+						this.clientDB = (ClientDB) entrada.readObject();
+						ss.close();
+						cs.close();
+					} catch (Exception e) {
+						System.out.println(e.getMessage());
+					}					
+				}
+				
 			} catch (KeeperException e) {
 				System.out.println("The session with Zookeeper failes. Closing");
 				return;
@@ -130,21 +154,26 @@ public class Bank {
 			try {
 				System.out.println("        Update!!");
 				List<String> list = zk.getChildren(rootMembers,  watcherMember); //this);
-				printListMembers(list);
-				selectLeader(list);
+				if (isLeader() && list.size() > members.size()) {
+					System.out.println("Tengo que mandar la base de datos!");
+					Thread.sleep(1000);
+					sendDB();
+				}
+				members = list;
+				printListMembers(members);
+				selectLeader(members);
 			} catch (Exception e) {
 				System.out.println("Exception: wacherMember");
 			}
 		}
 	};
-
-	@Override
+	
 	public void process(WatchedEvent event) {
 		try {
 			System.out.println("Unexpected invocated this method. Process of the object");
-			List<String> list = zk.getChildren(rootMembers, watcherMember); //this);
-			printListMembers(list);
-			selectLeader(list);
+			this.members = zk.getChildren(rootMembers, watcherMember); //this);
+			printListMembers(this.members);
+			selectLeader(this.members);
 		} catch (Exception e) {
 			System.out.println("Unexpected exception. Process of the object");
 		}
@@ -167,17 +196,20 @@ public class Bank {
 				leader = list.get(i);
 			}
 		}
-		Boolean isLeader = false;
-		String rol = "follower";
+		this.isLeader = false;
 		if (this.myId.equals(leader)) {
-			rol = "leader";
-			isLeader = true;
-			System.out.println("I'm "+ leader + " and I'm the " + rol);
-			this.isLeader = isLeader;
+			this.isLeader = true;
+			System.out.println("I'm "+ leader + " and I'm the leader" );
 			return;
 		}
-		this.rol = rol;
-		System.out.print("I'm " + rol + " and ");
+		System.out.print("I'm not the leader, ");
 		System.out.println("the leader is: " +  leader);
+	}
+	
+	private void sendDB() throws IOException{
+		this.cs = new Socket(HOST, PUERTO);
+		salida = new ObjectOutputStream(cs.getOutputStream());
+		salida.writeObject(this.clientDB);
+		cs.close();
 	}
 }

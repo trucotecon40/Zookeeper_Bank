@@ -1,7 +1,11 @@
 package es.upm.dit.cnvr.crudzk;
 
-public class BankClient implements BankClientI {
+import java.io.Serializable;
+
+public class BankClient implements BankClientI, Serializable {
 	
+	private static final long serialVersionUID = 1L;
+
 	private String name;
 
 	private int account;
