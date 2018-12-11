@@ -44,3 +44,17 @@ Ejecutar el método main de la aplicación:
 java es.upm.dit.cnvr.crudzk.MainBank
 ```
 Abrir tantos terminales como bancos se deseen crear y en el primero de ellos ejecutar ambos apartados y en los terminales restantes simplemente será necesario ejecutar este último apartado (Ejecutar la aplicación).
+
+### Ejecutar sistema de detección de fallos
+Ejecutar el script bank_fault_detector:
+```
+sh bank_fault_detector.sh
+```
+Dicho script comprobará cada 30 segundos si hay al menos 3 servidores del banco en funcionamiento, en caso contrario, pondrá un nuevo servidor en funcionamiento.
+
+En caso de lanzar el sistema en MacOS, se deberá sustituir la linea 7 de dicho script por el siguiente comando:
+```
+osascript -e 'tell app "Terminal" 
+				do script "java -jar zookeeper_bank.jar" 
+				end tell'
+```
