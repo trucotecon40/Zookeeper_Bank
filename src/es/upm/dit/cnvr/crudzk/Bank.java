@@ -5,9 +5,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.Inet4Address;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -24,7 +28,6 @@ public class Bank {
 	private static final int SESSION_TIMEOUT = 5000;
 
 	private final int PUERTO = 1234;
-	private final String HOST = "localhost";
 	private Socket cs;
 	private ObjectOutputStream salida;
 	private ServerSocket ss;
@@ -130,13 +133,16 @@ public class Bank {
 			try {
 				// Create a folder, if it is not created
 				String response = new String();
-				Stat s = zk.exists(rootMembers, watcherMember); // this);
+				Stat s = zk.exists(rootMembers, null); // this);
 				if (s == null) {
 					// Create the znode, if it is not created.
 					response = zk.create(rootMembers, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 					System.out.println(response);
 				}
-
+				String myIP = Inet4Address.getLocalHost().getHostAddress();
+				System.out.println("Mi dirección IP es: " + myIP);
+				Stat stat = zk.exists(rootMembers, null);
+				zk.setData(rootMembers, myIP.getBytes(), stat.getVersion());
 				// Create a znode for registering as member and get my id
 				myId = zk.create(rootMembers + aMember, new byte[0], Ids.OPEN_ACL_UNSAFE,
 						CreateMode.EPHEMERAL_SEQUENTIAL);
@@ -183,6 +189,8 @@ public class Bank {
 				return;
 			} catch (InterruptedException e) {
 				System.out.println("InterruptedException raised");
+			} catch (UnknownHostException e) {
+				System.out.println(e.getMessage());
 			}
 
 		}
@@ -304,9 +312,17 @@ public class Bank {
 	}
 
 	private void sendDB() throws IOException {
-		this.cs = new Socket(HOST, PUERTO);
-		salida = new ObjectOutputStream(cs.getOutputStream());
-		salida.writeObject(this.clientDB);
-		cs.close();
+		try {
+			Stat s = zk.exists(rootMembers, null);
+			byte[] data = zk.getData(rootMembers, null, s);
+			String toIP = new String(data);
+			System.out.println(toIP);
+			this.cs = new Socket(toIP, PUERTO);
+			salida = new ObjectOutputStream(cs.getOutputStream());
+			salida.writeObject(this.clientDB);
+			cs.close();
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		}		
 	}
 }
