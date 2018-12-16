@@ -58,3 +58,7 @@ osascript -e 'tell app "Terminal"
 				do script "java -jar zookeeper_bank.jar" 
 				end tell'
 ```
+En caso de utilizar un sistema linux la línea 7 deberá ser:
+```
+xterm -hold -e java -jar zookeeper_bank.jar &
+```
